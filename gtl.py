@@ -171,7 +171,7 @@ def _ExpandInclude(_, filename, template, specials, params, name):
   f = None
   try:
     try:
-      f = gruyere._Open(gruyere.RESOURCE_PATH, fname)
+      f = open(gruyere.RESOURCE_PATH + fname, 'r')
       result = f.read()
     except IOError:
       _Log('Error: missing filename: %s' % (filename,))

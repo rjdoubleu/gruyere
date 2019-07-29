@@ -34,8 +34,10 @@ import os
 import random
 import sys
 import threading
+import socket
 import urllib.request, urllib.parse, urllib.error
 from urllib.parse import urlparse
+from socketserver import ThreadingMixIn
 
 try:
   sys.dont_write_bytecode = True
@@ -91,6 +93,7 @@ RESOURCE_CONTENT_TYPES = {
     '.txt': 'text/plain',
 }
 
+allowed_ips = []
 
 def main():
   _SetWorkingDirectory()
@@ -101,23 +104,42 @@ def main():
   quit_timer = threading.Timer(7200, lambda: _Exit('Timeout'))   
   quit_timer.start()
   
-  server_name = 'localhost'  
-  server_port = 8008                                             
-
-  # The unique id is created from a CSPRNG.
-  try:                                                           
-    r = random.SystemRandom()                                    
-  except NotImplementedError:                                    
-    _Exit('Could not obtain a CSPRNG source')                    
+  server_name = '0.0.0.0'  
+  server_port = 8008                                                              
 
   global server_unique_id                                        
-  server_unique_id = str(r.randint(2**128, 2**(128+1)))          
+  server_unique_id = input('Enter your CTF team name: ')
 
- 
+  global allowed_ips
+  hostname = socket.gethostname()
+  ipAddr = str(socket.gethostbyname(hostname))
+  
+  print('-'*20 + 'Allowed IP Address List')
+  print('In order for other devices to connect to your server, you must allow them by IP address')
+  print('Please choose an option from the list below:')
+  print('1. Allow all LAN devices (' + ipAddr[:ipAddr.rfind('.')] + '.x)')
+  print('2. Specify a list of devices\n')
+  
+  while True:
+    choice = input('Choice: ')
+    try:
+      if choice == '1':
+        allowed_ips = [ipAddr + '.' + str(i) for i in range(0,256)]
+        break
+      elif choice == '2':
+        ip_list = input('Please enter a comma seperated list of IP addresses:\n')
+        allowed_ips = [i.strip() for i in ip_list.split(',')]
+        break
+      else:
+        raise ValueError
+    except ValueError:
+      print('Sorry that was not an option please try again.')
+  
+  allowed_ips.append('127.0.0.1')
 
   global http_server
-  http_server = HTTPServer((server_name, server_port),
-                           GruyereRequestHandler)
+  http_server = ThreadedHTTPServer((server_name, server_port), 
+                                   GruyereRequestHandler)
 
   print('''
       Gruyere started...
@@ -129,6 +151,7 @@ def main():
   global stored_data
   stored_data = _LoadDatabase()
 
+  """
   while not quit_server:
     try:
       http_server.handle_request()
@@ -140,7 +163,8 @@ def main():
   print('\nClosing', file=sys.stderr)
   http_server.socket.close()
   _Exit('quit_server')
-
+  """
+  http_server.serve_forever()
 
 def _Exit(reason):
   # use os._exit instead of sys.exit because this can't be trapped
@@ -162,14 +186,14 @@ def _LoadDatabase():
   """
 
   try:
-    f = _Open(INSTALL_PATH, DB_FILE,'rb')
+    f = open(INSTALL_PATH + DB_FILE,'rb')
     stored_data = pickle.load(f)
     f.close()
   except (IOError, ValueError):
     _Log('Couldn\'t load data; expected the first time Gruyere is run')
     stored_data = None
 
-  f = _Open(INSTALL_PATH, SECRET_FILE)
+  f = open(INSTALL_PATH + SECRET_FILE, 'r')
   global cookie_secret
   cookie_secret = f.readline()
   f.close()
@@ -185,25 +209,11 @@ def _SaveDatabase(save_database):
   """
 
   try:
-    f = _Open(INSTALL_PATH, DB_FILE, 'wb')
+    f = open(INSTALL_PATH + DB_FILE, 'wb')
     pickle.dump(save_database, f)
     f.close()
   except IOError:
     _Log('Couldn\'t save data')
-
-
-def _Open(location, filename, mode='r'):
-  """Open a file from a specific location.
-
-  Args:
-    location: The directory containing the file.
-    filename: The name of the file.
-    mode: File mode for open().
-
-  Returns:
-    A file object.
-  """
-  return open(location + filename, mode)
 
 
 class GruyereRequestHandler(BaseHTTPRequestHandler):
@@ -228,7 +238,7 @@ class GruyereRequestHandler(BaseHTTPRequestHandler):
   def _ResetDatabase(self):
     """Reset the database."""
     # global stored_data
-    stored_data = data.DefaultData()
+    # stored_data = data.DefaultData()
 
   def _DoLogin(self, cookie, specials, params):
     """Handles the /login url: validates the user and creates a cookie.
@@ -472,7 +482,7 @@ class GruyereRequestHandler(BaseHTTPRequestHandler):
     """
     f = None
     try:
-      f = _Open(RESOURCE_PATH, filename)
+      f = open(RESOURCE_PATH + filename, 'r')
       template = f.read()
     finally:
       if f: f.close()
@@ -507,7 +517,7 @@ class GruyereRequestHandler(BaseHTTPRequestHandler):
       return
     f = None
     try:
-      f = _Open(RESOURCE_PATH, filename, 'rb')
+      f = open(RESOURCE_PATH + filename, 'rb')
       self.send_response(200)
       self.send_header('Content-type', content_type)
       # Always cache static resources
@@ -652,14 +662,14 @@ class GruyereRequestHandler(BaseHTTPRequestHandler):
     message = None
     url = None
     try:
-      f = _Open(directory, filename, 'wb')
+      f = open(directory + filename, 'wb')
       f.write(file_data)
       f.close()
       (host, port) = http_server.server_address
       url = 'http://%s:%d/%s/%s/%s' % (
           host, port, specials[SPECIAL_UNIQUE_ID], cookie[COOKIE_UID], filename)
-    except IOError as ex:
-      message = 'Couldn\'t write file %s: %s' % (filename, ex.message)
+    except IOError:
+      message = 'Couldn\'t write file %s' % (filename)
       _Log(message)
 
     specials['_message'] = message
@@ -741,6 +751,7 @@ class GruyereRequestHandler(BaseHTTPRequestHandler):
     self.DoGetOrPost()
 
   def DoGetOrPost(self):
+    global allowed_ips
     """Validate an http get or post request and call HandleRequest."""
 
     url = urlparse(self.path)
@@ -748,8 +759,6 @@ class GruyereRequestHandler(BaseHTTPRequestHandler):
     query = url[4]
 
    #Network Security settings
-
-    allowed_ips = ['127.0.0.1']
 
     request_ip = self.client_address[0]                      
     if request_ip not in allowed_ips:                        
@@ -813,6 +822,8 @@ class GruyereRequestHandler(BaseHTTPRequestHandler):
     except KeyboardInterrupt:
       _Exit('KeyboardInterrupt')
 
+class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
+  """Handle requests in a separate thread."""
 
 def _Log(message):
   print(message, file=sys.stderr)
