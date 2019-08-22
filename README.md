@@ -13,7 +13,7 @@ Create a version of Gruyere perfect for a small CTF. The to do list is as follow
 
 ## Whats's New?
 In this version I added HTTP threading as to reliably allow multiple connections to the webpage. 
-In addition I added a friend CLI for specifying a Team Name and allowed IP adress list automation.
+In addition I added a friendly CLI for specifying a Team Name and allowed IP adress list automation.
 
 ## Setup Note 
 In order to connect to a remote server, the server must be referenced by it's ip address and broadcasting port using the follwoing syntax: http://255.255.255.255:8008 . Additionally **you should not run this exposed to an active internet connection while accepting all ip addresses**. Doing so will serioulsy endanger the host machine the server is running on. Instead the best practice is to use a router devouted only to the CTF. Anyone who wants to connect to the web server must therefore be connected to the same router. **The router may have internet access enabled only if the server is only accepting local connections**. Otherwise it is simply not worth the risk.
