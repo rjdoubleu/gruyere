@@ -3,7 +3,7 @@
 ## Warning
 Do not distribute this code outside of a classroom environment. Any modifications made to this code are simply an attempt of enhancing the prexisting curriculum and to continue the platform's ease of use and deployment. Please follow this curriculum found at (Google-Gruyere)[https://google-gruyere.appspot.com/]. Once the SQL backend is complete, an addition SQL injection curriculum will be included in this repository.
 
-## The Goal:
+## The Goal
 Create a version of Gruyere perfect for a small CTF. The to do list is as follows:
 
 - (Completed) CLI suuport for CTF environment
