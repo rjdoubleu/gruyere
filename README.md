@@ -8,8 +8,8 @@ Create a version of Gruyere perfect for a small CTF. The to do list is as follow
 
 - (Completed) CLI suuport for CTF environment
 - (Completed) HTTP Threading for multiple connections 
-- (Coming Soon) Create SQL backend to replace the current dictionary database
-- Encrypt password storage using SHA-256 
+- (Backlogged) Create SQL backend to replace the current dictionary database
+- (Backlogged) Encrypt password storage using SHA-256 
 
 ## Whats's New?
 In this version I added HTTP threading as to reliably allow multiple connections to the webpage. 
